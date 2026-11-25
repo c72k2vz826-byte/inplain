@@ -1,3 +1,4 @@
+import {review,classify} from './intelligence.js';
 import * as pdfjs from 'pdfjs-dist';
 import worker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjs.GlobalWorkerOptions.workerSrc=worker;
@@ -9,22 +10,6 @@ let category='', pages=[], generation=0, files=[], pending=[];
 function clear(){generation++;pages=[];files=[];pending=[];updateQueue();$('files').value='';$('camera').value='';$('source').textContent='';$('findings').replaceChildren();$('status').textContent='';$('aiStatus').textContent='';$('result').hidden=true}
 document.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{clear();category=b.dataset.cat;document.querySelectorAll('[data-cat]').forEach(x=>x.classList.toggle('active',x===b));$('heading').textContent='Add your '+category.toLowerCase()+' documents';$('upload').hidden=false;$('upload').scrollIntoView({behavior:'smooth'})});
 $('clear').onclick=clear;
-const rules=[
-[/non[- ]?refundable/i,'Non-refundable fee','You may not get this fee back. Check when this applies.'],
-[/floating rate|variable rate|interest rate reset/i,'Changing interest rate','Your rate may change. Ask whether your EMI or tenure changes.'],
-[/foreclosure|prepayment/i,'Early repayment','Check the conditions and charges for repaying early.'],
-[/credit bureau|credit information|cibil/i,'Credit information','Check what credit checks and information sharing you authorise.'],
-[/insurance premium|credit life/i,'Insurance cost','Ask whether insurance is optional and whether its cost is financed.'],
-[/minimum (amount )?due/i,'Minimum payment','Paying only the minimum may leave a balance subject to interest.'],
-[/late payment|penal charge|penalty/i,'Late charges','Check the amount, trigger and calculation of late charges.'],
-[/due date|pay by|payment deadline/i,'Payment deadline','Confirm the exact date and amount before acting.'],
-[/meter reading|units consumed|consumption/i,'Consumption','Compare current and previous readings and billed units.'],
-[/arrears|previous balance/i,'Previous balance','Check whether previous payments have been credited.'],
-[/fixed charge|fuel adjustment|electricity duty|wheeling charge/i,'Bill components','These may be separate from energy consumption charges.'],
-[/waiting period|exclusion|co.payment|sub.limit/i,'Coverage limitation','Check when coverage is restricted and what you may pay yourself.'],
-[/sarfaesi|arbitration|summons|demand notice|loan recall/i,'Legal notice','The sender may be asserting a claim or starting a process. Verify the deadline and seek qualified legal advice.'],
-[/consent|authori[sz]e|declaration/i,'Permissions and declarations','Read the specific permission or declaration before signing.']
-];
 function render(){
 $('source').textContent=pages.map(p=>p.name+' · Page '+p.page+'\n'+p.text).join('\n\n');
 const root=$('findings');root.replaceChildren();
@@ -49,8 +34,7 @@ let values=[];for(const [label,pattern] of charges){const v=pick(new RegExp(patt
 if(values.length){add('h3','Where your money goes');for(const [label,v] of values)add('p',label+' · ₹'+v.v+' · Page '+v.page)}
 if(!amt||!due||!meter)add('p','Some fields could not be verified. Do not rely on missing or incomplete figures.');
 }else{
-let count=0;for(const [re,title,explain] of rules){const p=pages.find(p=>re.test(p.text));if(!p)continue;count++;const at=p.text.match(re).index;add('h3',title);add('p',explain);add('small',p.name+' · Page '+p.page+' — '+p.text.slice(Math.max(0,at-65),at+130))}
-if(!count)add('p','No supported terms identified. This does not establish that the document is safe or complete.');
+const type=classify(pages.map(p=>p.text).join(' '));add('p',type?'Possible document type: '+type:'Document type not confirmed');const findings=review(category,pages);for(const f of findings){add('h3',f.title);add('p',f.meaning);add('small',f.name+' · Page '+f.page+' — '+f.evidence)}if(findings.length){add('h3','Questions to clarify');const ul=document.createElement('ul');root.append(ul);for(const f of findings)add('li',f.question,ul)}else add('p','No supported terms identified. This does not establish that the document is safe or complete.');
 }
 add('small','Limited local review. Verify findings against the original document.');$('result').hidden=!pages.length;if(pages.length)$('result').scrollIntoView({behavior:'smooth',block:'start'});
 }
