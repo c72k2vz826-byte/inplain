@@ -33,7 +33,7 @@ if(category==='Utility bill'){
 const norm=t=>t.normalize('NFC').replace(/\s+/g,' ').replace(/ि([क-ह])/g,'$1ि').replace(/े\s+य/g,'ेय');
 const pick=re=>{for(const p of pages){const m=norm(p.text).match(re);if(m)return {v:m[1],page:p.page,m}}return null};
 const money='([\\d,]+\\.\\d{2})';
-const amt=pick(new RegExp('(?:देयक\\s*रक्कम\\s*रु|पूर्णांक\\s*देयक\\s*\\(रु\\.\\)|amount payable)\\s*[:.₹\\s]*'+money,'i'));
+const amt=pick(new RegExp('(?:देयक\\s*रक्कम\\s*रु|पूर्णांक\\s*देयक\\s*\\(रु\\.\\)|amount payable)\\s*[:.₹\\s]*'+money,'i')) || pick(/(?:अं\s*ति\s*म\s*तारीख|अं\s*ित\s*म\s*तारीख|अंतिम तारीख)\s*[:\s]*\d{1,2}-[A-Z]{3}-\d{2,4}\s+([\d,]+\.\d{2})/i);
 const due=pick(/(?:After this date|देय\s*दिनांक|अंतिम तारीख)\s*[:\s]*(\d{1,2}-[A-Z]{3}-\d{2,4})/i);
 const meter=pick(/(?:एकूण\s*)?(\d{4,8})\s+(\d{4,8})\s+(0?1)\s+(\d{1,6})\s+0\s+\4\b/);
 const late=pick(/Pay Rs\.\s*([\d,]+\.\d{2})/i);
