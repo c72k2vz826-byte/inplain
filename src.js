@@ -30,11 +30,24 @@ $('source').textContent=pages.map(p=>p.name+' · Page '+p.page+'\n'+p.text).join
 const root=$('findings');root.replaceChildren();
 function add(tag,t,parent=root){const e=document.createElement(tag);e.textContent=t;parent.append(e);return e}
 if(category==='Utility bill'){
-const fields=[['Amount payable',/(?:total amount payable|net amount payable|amount payable|bill amount)\s*[:₹Rs.\s]*([\d,]+(?:\.\d{1,2})?)/i,'₹'],['Payment due date',/(?:payment due date|due date|pay by)\s*[:\s]*(\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4})/i,''],['Units billed',/(?:units consumed|billed units|consumption units)\s*[:\s]*([\d,]+(?:\.\d+)?)/i,'']];
-const grid=document.createElement('div');grid.className='metrics';root.append(grid);let found=0;
-for(const [label,re,prefix] of fields){const p=pages.find(p=>re.test(p.text));const tile=document.createElement('div');grid.append(tile);add('small',label,tile);add('strong',p?prefix+p.text.match(re)[1]:'Not identified',tile);if(p){found++;add('small','Page '+p.page+' · Verify against bill',tile)}}
-add('h3',found?'What to check':'We could not identify the bill details reliably');
-add('p',found?'Confirm the amounts and dates against the original bill. Check billed units, arrears and separate charges.':'This PDF may contain website navigation, a scanned bill or an unsupported layout. Select the actual bill PDF rather than a printout of the website, if available.');
+const norm=t=>t.normalize('NFC').replace(/\s+/g,' ').replace(/ि([क-ह])/g,'$1ि').replace(/े\s+य/g,'ेय');
+const pick=re=>{for(const p of pages){const m=norm(p.text).match(re);if(m)return {v:m[1],page:p.page,m}}return null};
+const money='([\\d,]+\\.\\d{2})';
+const amt=pick(new RegExp('(?:देयक\\s*रक्कम\\s*रु|पूर्णांक\\s*देयक\\s*\\(रु\\.\\)|amount payable)\\s*[:.₹\\s]*'+money,'i'));
+const due=pick(/(?:After this date|देय\s*दिनांक|अंतिम तारीख)\s*[:\s]*(\d{1,2}-[A-Z]{3}-\d{2,4})/i);
+const meter=pick(/(?:एकूण\s*)?(\d{4,8})\s+(\d{4,8})\s+(0?1)\s+(\d{1,6})\s+0\s+\4\b/);
+const late=pick(/Pay Rs\.\s*([\d,]+\.\d{2})/i);
+const deposit=pick(/सुरक्षा\s*ठे\s*व\s*थकबाकी\s*\(रु\)\s*:\s*([\d,]+\.\d{2})/);
+const grid=document.createElement('div');grid.className='metrics';root.append(grid);
+for(const [label,value,prefix] of [['Amount payable',amt,'₹'],['Original due date',due,''],['Units billed',meter?{v:meter.m[4],page:meter.page}:null,''],['Late payment amount',late,'₹']]){const tile=document.createElement('div');grid.append(tile);add('small',label,tile);add('strong',value?prefix+value.v:'Not identified',tile);if(value)add('small','Page '+value.page,tile)}
+add('h3','What your bill means');
+if(meter){const [cur,prev,mult,units]=meter.m.slice(1).map(Number);add('p',cur+' − '+prev+' = '+(cur-prev)+' units. '+((cur-prev)*mult===units?'Meter readings reconcile with billed units.':'Meter readings need verification.'))}
+if(amt&&late){const n=x=>Number(x.v.replace(/,/g,''));add('p','The printed late payment amount is ₹'+(n(late)-n(amt)).toFixed(2)+' higher than the billed amount. This is not a live balance.')}
+if(deposit){add('h3','Separate security deposit outstanding');add('p','₹'+deposit.v+' is listed separately. Confirm whether and when it is payable. Page '+deposit.page)}
+const charges=[['Fixed charges','स्थिर\\s*आकार'],['Energy charges','वीज\\s*आकार'],['Wheeling charges','वहन\\s*आकार[^\\d]{0,15}[\\d.]+\\s*/\\s*युनिट'],['Fuel adjustment','इं\\s*धन\\s*समायोजन\\s*आकार'],['Electricity duty','वीज\\s*शुल्क\\s*\\([^)]*\\)']];
+let values=[];for(const [label,pattern] of charges){const v=pick(new RegExp(pattern+'\\s*'+money));if(v)values.push([label,v])}
+if(values.length){add('h3','Where your money goes');for(const [label,v] of values)add('p',label+' · ₹'+v.v+' · Page '+v.page)}
+if(!amt||!due||!meter)add('p','Some fields could not be verified. Do not rely on missing or incomplete figures.');
 }else{
 let count=0;for(const [re,title,explain] of rules){const p=pages.find(p=>re.test(p.text));if(!p)continue;count++;const at=p.text.match(re).index;add('h3',title);add('p',explain);add('small',p.name+' · Page '+p.page+' — '+p.text.slice(Math.max(0,at-65),at+130))}
 if(!count)add('p','No supported terms identified. This does not establish that the document is safe or complete.');
